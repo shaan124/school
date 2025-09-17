@@ -1,2 +1,6 @@
 Flask==2.3.2
 Werkzeug==2.3.6
+pandas==2.0.3
+xhtml2pdf==0.2.11
+reportlab==4.0.5
+sqlite3
