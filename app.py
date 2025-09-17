@@ -14,7 +14,7 @@ from contextlib import contextmanager
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'
 
-# Database configuration
+# Local SQLite database file
 DATABASE = 'school_management.db'
 
 # ---- DATABASE UTILITIES ----
@@ -60,7 +60,7 @@ def init_db():
                 max_marks INTEGER NOT NULL,
                 teacher_id TEXT NOT NULL,
                 date TEXT NOT NULL,
-                test_id TEXT NOT NULL,
+                test_name TEXT NOT NULL,
                 FOREIGN KEY (student_id) REFERENCES students (student_id),
                 FOREIGN KEY (teacher_id) REFERENCES teachers (teacher_id)
             )
@@ -160,12 +160,12 @@ def get_all_tests():
         cursor = conn.execute('SELECT * FROM tests')
         return cursor.fetchall()
 
-def add_result(student_id, subject, marks, max_marks, teacher_id, date, test_id):
+def add_result(student_id, subject, marks, max_marks, teacher_id, date, test_name):
     with get_db() as conn:
         conn.execute('''
-            INSERT INTO results (student_id, subject, marks, max_marks, teacher_id, date, test_id)
+            INSERT INTO results (student_id, subject, marks, max_marks, teacher_id, date, test_name)
             VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (student_id, subject, marks, max_marks, teacher_id, date, test_id))
+        ''', (student_id, subject, marks, max_marks, teacher_id, date, test_name))
         conn.commit()
 
 def get_student_results(student_id):
@@ -180,16 +180,17 @@ def get_student_results(student_id):
         ''', (student_id,))
         return cursor.fetchall()
 
-def get_student_total_results(student_id):
+def get_student_total_performance(student_id):
     with get_db() as conn:
         cursor = conn.execute('''
-            SELECT subject, SUM(marks) as total_marks, SUM(max_marks) as total_max_marks,
-                   (SUM(marks) * 100.0 / SUM(max_marks)) as percentage
+            SELECT 
+                SUM(marks) as total_marks,
+                SUM(max_marks) as total_max_marks,
+                (SUM(marks) * 100.0 / SUM(max_marks)) as percentage
             FROM results 
-            WHERE student_id = ? AND subject NOT LIKE '→ Total%'
-            GROUP BY subject
+            WHERE student_id = ?
         ''', (student_id,))
-        return cursor.fetchall()
+        return cursor.fetchone()
 
 # ---- LOGIN CHECK DECORATOR ----
 def student_login_required(f):
@@ -200,18 +201,26 @@ def student_login_required(f):
         return f(*args, **kwargs)
     return wrapper
 
+def teacher_login_required(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if session.get('role') != 'teacher' or not session.get('teacher_id'):
+            return redirect('/teacher_login')
+        return f(*args, **kwargs)
+    return wrapper
+
+def admin_login_required(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if session.get('role') != 'admin':
+            return redirect('/admin_login')
+        return f(*args, **kwargs)
+    return wrapper
+
 # ---- ROUTES ----
 @app.route('/')
 def index():
     return render_template('index.html')
-
-@app.route('/boom')
-def boom():
-    1 / 0  # Force a crash
-
-@app.route('/app')
-def app_page():
-    return render_template('app.html')
 
 @app.route('/admin_login', methods=['GET', 'POST'])
 def admin_login():
@@ -226,16 +235,13 @@ def admin_login():
     return render_template('admin_login.html')
 
 @app.route('/admin_dashboard')
+@admin_login_required
 def admin_dashboard():
-    if session.get('role') != 'admin':
-        return redirect('/')
     return render_template('admin_dashboard.html')
 
 @app.route('/manage_students')
+@admin_login_required
 def manage_students():
-    if session.get('role') != 'admin':
-        return redirect('/admin_login')
-
     class_filter = request.args.get('class')
     division_filter = request.args.get('division')
 
@@ -261,9 +267,8 @@ def manage_students():
     return render_template('manage_students.html', students=filtered)
 
 @app.route('/manage_teachers')
+@admin_login_required
 def manage_teachers():
-    if session.get('role') != 'admin':
-        return redirect('/admin_login')
     teachers = get_all_teachers()
     return render_template('manage_teachers.html', teachers=teachers)
 
@@ -307,7 +312,7 @@ def student_results():
         return "Student not found."
 
     results = get_student_results(sid)
-    total_results = get_student_total_results(sid)
+    total_performance = get_student_total_performance(sid)
     
     trend_data = []
     total_max = 0
@@ -318,30 +323,25 @@ def student_results():
 
     formatted_results = []
     for result in results:
-        if result['subject'].startswith("→ Total"):
-            trend_data.append({
-                'date': result['date'],
-                'percent': float(str(result['marks'] * 100 / result['max_marks']).replace('%', ''))
-            })
-        else:
-            marks = result['marks']
-            max_marks = result['max_marks']
-            percentage = float(str(marks * 100 / max_marks).replace('%', '').replace('%%', ''))
-            grade = "A+" if percentage >= 90 else "A" if percentage >= 75 else "B" if percentage >= 60 else "C" if percentage >= 50 else "D"
-            color = "green" if percentage >= 90 else "blue" if percentage >= 75 else "orange" if percentage >= 60 else "darkorange" if percentage >= 50 else "red"
+        marks = result['marks']
+        max_marks = result['max_marks']
+        percentage = float(str(marks * 100 / max_marks).replace('%', '').replace('%%', ''))
+        grade = "A+" if percentage >= 90 else "A" if percentage >= 75 else "B" if percentage >= 60 else "C" if percentage >= 50 else "D"
+        color = "green" if percentage >= 90 else "blue" if percentage >= 75 else "orange" if percentage >= 60 else "darkorange" if percentage >= 50 else "red"
 
-            formatted_results.append({
-                'subject': result['subject'],
-                'marks': marks,
-                'max_marks': max_marks,
-                'teacher_name': result['teacher_name'],
-                'date': result['date'],
-                'grade': grade,
-                'color': color
-            })
+        formatted_results.append({
+            'subject': result['subject'],
+            'marks': marks,
+            'max_marks': max_marks,
+            'teacher_name': result['teacher_name'],
+            'date': result['date'],
+            'test_name': result['test_name'],
+            'grade': grade,
+            'color': color
+        })
 
-            total_obtained += marks
-            total_max += max_marks
+        total_obtained += marks
+        total_max += max_marks
 
     overall = round(total_obtained / total_max * 100, 2) if total_max > 0 else 0
     overall_grade = "A+" if overall >= 90 else "A" if overall >= 75 else "B" if overall >= 60 else "C" if overall >= 50 else "D"
@@ -371,7 +371,7 @@ def teacher_login():
             session['role'] = 'teacher'
             session['username'] = teacher['name']
             session['teacher_id'] = tid
-            return redirect('/upload_result')
+            return redirect('/teacher_dashboard')
         return 'Invalid credentials.'
     return render_template('teacher_login.html')
 
@@ -380,7 +380,7 @@ def teacher_register():
     if request.method == 'POST':
         tid = request.form.get('teacher_id')
         pw = request.form.get('password')
-        name = request.form.get('name', tid)  # Use teacher_id as name if not provided
+        name = request.form.get('name', tid)
         if not tid or not pw:
             return "Missing fields"
         if get_teacher(tid):
@@ -389,11 +389,14 @@ def teacher_register():
         return redirect('/teacher_login')
     return render_template('teacher_register.html')
 
-@app.route('/upload_result', methods=['GET', 'POST'])
-def upload_result():
-    if session.get('role') != 'teacher':
-        return redirect('/teacher_login')
+@app.route('/teacher_dashboard')
+@teacher_login_required
+def teacher_dashboard():
+    return render_template('teacher_dashboard.html')
 
+@app.route('/upload_result', methods=['GET', 'POST'])
+@teacher_login_required
+def upload_result():
     test_options = get_all_tests()
     students = get_all_students()
 
@@ -411,16 +414,31 @@ def upload_result():
             return "Invalid test selected."
 
         maxm = int(selected_test['max_marks'])
-        percent = round((marks / maxm) * 100, 2)
-        grade = 'A+' if percent >= 90 else 'A' if percent >= 75 else 'B' if percent >= 60 else 'C' if percent >= 50 else 'D'
-
+        
         # Add result to database
-        add_result(sid, f"{selected_test['subject']} ({selected_test['name']})", 
-                  marks, maxm, session['teacher_id'], selected_test['date'], test_id)
+        add_result(sid, selected_test['subject'], marks, maxm, 
+                  session['teacher_id'], selected_test['date'], selected_test['name'])
 
         return redirect('/upload_result')
 
     return render_template('upload_result.html', tests=test_options, students=students)
+
+@app.route('/create_test', methods=['GET', 'POST'])
+@teacher_login_required
+def create_test():
+    if request.method == 'POST':
+        test_id = request.form['test_id']
+        subject = request.form['subject']
+        name = request.form['name']
+        max_marks = int(request.form['max_marks'])
+        date = request.form['date']
+        class_name = request.form['class_name']
+        division = request.form['division']
+
+        add_test(test_id, subject, name, max_marks, date, class_name, division)
+        return redirect('/upload_result')
+    
+    return render_template('create_test.html')
 
 @app.route('/logout')
 def logout():
@@ -428,4 +446,6 @@ def logout():
     return redirect('/')
 
 if __name__ == '__main__':
+    # Create database directory if it doesn't exist
+    os.makedirs(os.path.dirname(DATABASE), exist_ok=True)
     app.run(host='0.0.0.0', port=8080, debug=True)
