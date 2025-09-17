@@ -8,60 +8,188 @@ from functools import wraps
 import pandas as pd
 from io import BytesIO
 from xhtml2pdf import pisa
+import sqlite3
+from contextlib import contextmanager
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'
 
-# Global data
-students_db = {}
-teachers_db = {}
-admin_credentials = {'admin': 'admin'}
+# Database configuration
+DATABASE = 'school_management.db'
 
-students_file = 'students.txt'
-teachers_file = 'teachers.txt'
+# ---- DATABASE UTILITIES ----
+@contextmanager
+def get_db():
+    conn = sqlite3.connect(DATABASE)
+    conn.row_factory = sqlite3.Row
+    try:
+        yield conn
+    finally:
+        conn.close()
 
+def init_db():
+    with get_db() as conn:
+        # Students table
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS students (
+                student_id TEXT PRIMARY KEY,
+                password TEXT NOT NULL,
+                name TEXT NOT NULL,
+                dob TEXT NOT NULL,
+                class TEXT NOT NULL,
+                division TEXT NOT NULL
+            )
+        ''')
+        
+        # Teachers table
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS teachers (
+                teacher_id TEXT PRIMARY KEY,
+                password TEXT NOT NULL,
+                name TEXT NOT NULL
+            )
+        ''')
+        
+        # Results table
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS results (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                student_id TEXT NOT NULL,
+                subject TEXT NOT NULL,
+                marks INTEGER NOT NULL,
+                max_marks INTEGER NOT NULL,
+                teacher_id TEXT NOT NULL,
+                date TEXT NOT NULL,
+                test_id TEXT NOT NULL,
+                FOREIGN KEY (student_id) REFERENCES students (student_id),
+                FOREIGN KEY (teacher_id) REFERENCES teachers (teacher_id)
+            )
+        ''')
+        
+        # Tests table
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS tests (
+                test_id TEXT PRIMARY KEY,
+                subject TEXT NOT NULL,
+                name TEXT NOT NULL,
+                max_marks INTEGER NOT NULL,
+                date TEXT NOT NULL,
+                class TEXT NOT NULL,
+                division TEXT NOT NULL
+            )
+        ''')
+        
+        # Admin credentials table
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS admin_credentials (
+                username TEXT PRIMARY KEY,
+                password TEXT NOT NULL
+            )
+        ''')
+        
+        # Insert default admin if not exists
+        conn.execute('''
+            INSERT OR IGNORE INTO admin_credentials (username, password)
+            VALUES ('admin', 'admin')
+        ''')
+        
+        conn.commit()
 
-# ---- LOAD DATA ----
-def load_students():
-    if os.path.exists(students_file):
-        with open(students_file, 'r') as f:
-            for line in f:
-                parts = line.strip().split(',')
-                if len(parts) == 6:
-                    student_id, password, name, dob, class_name, division = parts
-                    students_db[student_id] = {
-                        'password': password,
-                        'name': name,
-                        'dob': dob,
-                        'class': class_name,
-                        'division': division
-                    }
+# Initialize database
+init_db()
 
-def load_teachers():
-    if os.path.exists(teachers_file):
-        with open(teachers_file, 'r') as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                parts = line.split(',')
-                if len(parts) == 2:
-                    teacher_id, password = parts
-                    teachers_db[teacher_id] = {'password': password, 'name': teacher_id}
+# ---- DATABASE OPERATIONS ----
+def get_student(student_id):
+    with get_db() as conn:
+        cursor = conn.execute('SELECT * FROM students WHERE student_id = ?', (student_id,))
+        return cursor.fetchone()
 
-def save_students():
-    with open(students_file, 'w') as f:
-        for sid, data in students_db.items():
-            f.write(f"{sid},{data['password']},{data['name']},{data['dob']},{data['class']},{data['division']}\n")
+def get_all_students():
+    with get_db() as conn:
+        cursor = conn.execute('SELECT * FROM students')
+        return cursor.fetchall()
 
-def save_teachers():
-    with open(teachers_file, 'w') as f:
-        for tid, data in teachers_db.items():
-            f.write(f"{tid},{data['password']}\n")
+def get_students_by_class(class_name, division):
+    with get_db() as conn:
+        cursor = conn.execute('SELECT * FROM students WHERE class = ? AND division = ?', 
+                             (class_name, division))
+        return cursor.fetchall()
 
-# Load initial data
-load_students()
-load_teachers()
+def add_student(student_id, password, name, dob, class_name, division):
+    with get_db() as conn:
+        conn.execute('''
+            INSERT INTO students (student_id, password, name, dob, class, division)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (student_id, password, name, dob, class_name, division))
+        conn.commit()
+
+def get_teacher(teacher_id):
+    with get_db() as conn:
+        cursor = conn.execute('SELECT * FROM teachers WHERE teacher_id = ?', (teacher_id,))
+        return cursor.fetchone()
+
+def get_all_teachers():
+    with get_db() as conn:
+        cursor = conn.execute('SELECT * FROM teachers')
+        return cursor.fetchall()
+
+def add_teacher(teacher_id, password, name):
+    with get_db() as conn:
+        conn.execute('''
+            INSERT INTO teachers (teacher_id, password, name)
+            VALUES (?, ?, ?)
+        ''', (teacher_id, password, name))
+        conn.commit()
+
+def verify_admin(username, password):
+    with get_db() as conn:
+        cursor = conn.execute('SELECT * FROM admin_credentials WHERE username = ? AND password = ?', 
+                             (username, password))
+        return cursor.fetchone() is not None
+
+def add_test(test_id, subject, name, max_marks, date, class_name, division):
+    with get_db() as conn:
+        conn.execute('''
+            INSERT INTO tests (test_id, subject, name, max_marks, date, class, division)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (test_id, subject, name, max_marks, date, class_name, division))
+        conn.commit()
+
+def get_all_tests():
+    with get_db() as conn:
+        cursor = conn.execute('SELECT * FROM tests')
+        return cursor.fetchall()
+
+def add_result(student_id, subject, marks, max_marks, teacher_id, date, test_id):
+    with get_db() as conn:
+        conn.execute('''
+            INSERT INTO results (student_id, subject, marks, max_marks, teacher_id, date, test_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (student_id, subject, marks, max_marks, teacher_id, date, test_id))
+        conn.commit()
+
+def get_student_results(student_id):
+    with get_db() as conn:
+        cursor = conn.execute('''
+            SELECT r.*, s.name as student_name, t.name as teacher_name
+            FROM results r
+            JOIN students s ON r.student_id = s.student_id
+            JOIN teachers t ON r.teacher_id = t.teacher_id
+            WHERE r.student_id = ?
+            ORDER BY r.date
+        ''', (student_id,))
+        return cursor.fetchall()
+
+def get_student_total_results(student_id):
+    with get_db() as conn:
+        cursor = conn.execute('''
+            SELECT subject, SUM(marks) as total_marks, SUM(max_marks) as total_max_marks,
+                   (SUM(marks) * 100.0 / SUM(max_marks)) as percentage
+            FROM results 
+            WHERE student_id = ? AND subject NOT LIKE '→ Total%'
+            GROUP BY subject
+        ''', (student_id,))
+        return cursor.fetchall()
 
 # ---- LOGIN CHECK DECORATOR ----
 def student_login_required(f):
@@ -90,7 +218,7 @@ def admin_login():
     if request.method == 'POST':
         username = request.form.get('username').strip()
         password = request.form.get('password').strip()
-        if admin_credentials.get(username) == password:
+        if verify_admin(username, password):
             session['role'] = 'admin'
             session['username'] = username
             return redirect('/admin_dashboard')
@@ -111,22 +239,23 @@ def manage_students():
     class_filter = request.args.get('class')
     division_filter = request.args.get('division')
 
+    if class_filter and division_filter:
+        students = get_students_by_class(class_filter, division_filter)
+    else:
+        students = get_all_students()
+
     filtered = []
-    for sid, data in students_db.items():
-        if class_filter and data.get('class') != class_filter:
-            continue
-        if division_filter and data.get('division') != division_filter:
-            continue
+    for student in students:
         try:
-            age = (datetime.now() - datetime.strptime(data['dob'], "%Y-%m-%d")).days // 365
+            age = (datetime.now() - datetime.strptime(student['dob'], "%Y-%m-%d")).days // 365
         except:
             age = "N/A"
         filtered.append({
-            'id': sid,
-            'name': data['name'],
-            'dob': data['dob'],
-            'class': data['class'],
-            'division': data['division'],
+            'id': student['student_id'],
+            'name': student['name'],
+            'dob': student['dob'],
+            'class': student['class'],
+            'division': student['division'],
             'age': age
         })
     return render_template('manage_students.html', students=filtered)
@@ -135,18 +264,8 @@ def manage_students():
 def manage_teachers():
     if session.get('role') != 'admin':
         return redirect('/admin_login')
-    return render_template('manage_teachers.html', teachers=teachers_db)
-
-@app.route('/manage_results')
-def manage_results():
-    if session.get('role') != 'admin':
-        return redirect('/admin_login')
-    results = []
-    if os.path.exists(results_file):
-        with open(results_file, 'r') as f:
-            for line in f:
-                results.append(line.strip().split(','))
-    return render_template('manage_results.html', results=results)
+    teachers = get_all_teachers()
+    return render_template('manage_teachers.html', teachers=teachers)
 
 @app.route('/student_register', methods=['GET', 'POST'])
 def student_register():
@@ -158,17 +277,10 @@ def student_register():
         class_name = request.form['class_name']
         division = request.form['division']
 
-        if sid in students_db:
+        if get_student(sid):
             return 'Student ID already registered.'
 
-        students_db[sid] = {
-            'password': password,
-            'name': name,
-            'dob': dob,
-            'class': class_name,
-            'division': division
-        }
-        save_students()
+        add_student(sid, password, name, dob, class_name, division)
         return redirect('/student_login')
     return render_template('student_register.html')
 
@@ -177,7 +289,7 @@ def student_login():
     if request.method == 'POST':
         sid = request.form['student_id']
         password = request.form['password']
-        student = students_db.get(sid)
+        student = get_student(sid)
         if student and student['password'] == password:
             session['role'] = 'student'
             session['username'] = student['name']
@@ -186,60 +298,44 @@ def student_login():
         return 'Invalid credentials.'
     return render_template('student_login.html')
 
-
-
-
 @app.route('/result_view')
 @student_login_required
 def student_results():
     sid = session['student_id']
-    student = students_db.get(sid)
+    student = get_student(sid)
     if not student:
         return "Student not found."
 
-    results = []
+    results = get_student_results(sid)
+    total_results = get_student_total_results(sid)
+    
     trend_data = []
     total_max = 0
     total_obtained = 0
 
-    year = str(datetime.now().year)
-    class_name = student['class']
-    division = student['division']
-    file_path = f"results_data/{year}/Class_{class_name}_{division}.xlsx"
-
-    if not os.path.exists(file_path):
-        return "No result data available yet."
-
     dob = datetime.strptime(student['dob'], "%Y-%m-%d")
     age = (datetime.now() - dob).days // 365
 
-    df = pd.read_excel(file_path)
-    df['Student ID'] = df['Student ID'].astype(str)  # 🔥 THIS FIXES THE MATCHING
-    student_rows = df[df['Student ID'] == sid]
-
-    for _, row in student_rows.iterrows():
-        subject = row['Subject']
-        if isinstance(subject, str) and subject.startswith("→ Total"):
+    formatted_results = []
+    for result in results:
+        if result['subject'].startswith("→ Total"):
             trend_data.append({
-                'date': row.get('Date', ''),
-                'percent': float(str(row['%']).replace('%', ''))
+                'date': result['date'],
+                'percent': float(str(result['marks'] * 100 / result['max_marks']).replace('%', ''))
             })
-        elif pd.notna(subject) and "Total" not in str(subject):
-            marks = row['Marks']
-            max_marks = row['Max Marks']
-            percentage = float(str(row['%']).replace('%', '').replace('%%', ''))
-            grade = row['Grade']
-            teacher = row['Teacher']
-            date = row['Date']
-
+        else:
+            marks = result['marks']
+            max_marks = result['max_marks']
+            percentage = float(str(marks * 100 / max_marks).replace('%', '').replace('%%', ''))
+            grade = "A+" if percentage >= 90 else "A" if percentage >= 75 else "B" if percentage >= 60 else "C" if percentage >= 50 else "D"
             color = "green" if percentage >= 90 else "blue" if percentage >= 75 else "orange" if percentage >= 60 else "darkorange" if percentage >= 50 else "red"
 
-            results.append({
-                'subject': subject,
+            formatted_results.append({
+                'subject': result['subject'],
                 'marks': marks,
                 'max_marks': max_marks,
-                'teacher_name': teacher,
-                'date': date,
+                'teacher_name': result['teacher_name'],
+                'date': result['date'],
                 'grade': grade,
                 'color': color
             })
@@ -255,29 +351,25 @@ def student_results():
                            student_id=sid,
                            student_dob=student['dob'],
                            student_age=age,
-                           results=results,
+                           results=formatted_results,
                            performance_data=json.dumps({
-                               'subjects': [r['subject'] for r in results],
-                               'marks': [r['marks'] for r in results],
-                               'max_marks': [r['max_marks'] for r in results]
+                               'subjects': [r['subject'] for r in formatted_results],
+                               'marks': [r['marks'] for r in formatted_results],
+                               'max_marks': [r['max_marks'] for r in formatted_results]
                            }),
                            trend_data=json.dumps(trend_data),
                            overall_performance=overall,
                            grade=overall_grade)
-
-
-
-
 
 @app.route('/teacher_login', methods=['GET', 'POST'])
 def teacher_login():
     if request.method == 'POST':
         tid = request.form.get('teacher_id')
         pw = request.form.get('password')
-        t = teachers_db.get(tid)
-        if t and t['password'] == pw:
+        teacher = get_teacher(tid)
+        if teacher and teacher['password'] == pw:
             session['role'] = 'teacher'
-            session['username'] = t['name']
+            session['username'] = teacher['name']
             session['teacher_id'] = tid
             return redirect('/upload_result')
         return 'Invalid credentials.'
@@ -288,39 +380,22 @@ def teacher_register():
     if request.method == 'POST':
         tid = request.form.get('teacher_id')
         pw = request.form.get('password')
+        name = request.form.get('name', tid)  # Use teacher_id as name if not provided
         if not tid or not pw:
             return "Missing fields"
-        if tid in teachers_db:
+        if get_teacher(tid):
             return "Teacher ID exists"
-        teachers_db[tid] = {'password': pw, 'name': tid}
-        save_teachers()
+        add_teacher(tid, pw, name)
         return redirect('/teacher_login')
     return render_template('teacher_register.html')
-
-
 
 @app.route('/upload_result', methods=['GET', 'POST'])
 def upload_result():
     if session.get('role') != 'teacher':
         return redirect('/teacher_login')
 
-    test_list_file = 'test_list.txt'
-    test_options = []
-
-    # Load test list
-    if os.path.exists(test_list_file):
-        with open(test_list_file, 'r') as f:
-            for line in f:
-                tid, subject, name, maxm, date, cls, div = line.strip().split(',')
-                test_options.append({
-                    'id': tid,
-                    'subject': subject,
-                    'name': name,
-                    'max_marks': maxm,
-                    'date': date,
-                    'class': cls,
-                    'division': div
-                })
+    test_options = get_all_tests()
+    students = get_all_students()
 
     if request.method == 'POST':
         test_id = request.form['test_id']
@@ -328,150 +403,29 @@ def upload_result():
         marks = int(request.form['marks'])
 
         # Get test data
-        selected_test = None
-        for test in test_options:
-            if test['id'] == test_id:
-                selected_test = test
-                break
+        with get_db() as conn:
+            cursor = conn.execute('SELECT * FROM tests WHERE test_id = ?', (test_id,))
+            selected_test = cursor.fetchone()
 
         if not selected_test:
             return "Invalid test selected."
-
-        file_path = f"results_data/{datetime.now().year}/Class_{selected_test['class']}_{selected_test['division']}.xlsx"
-        os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
         maxm = int(selected_test['max_marks'])
         percent = round((marks / maxm) * 100, 2)
         grade = 'A+' if percent >= 90 else 'A' if percent >= 75 else 'B' if percent >= 60 else 'C' if percent >= 50 else 'D'
 
-        new_row = {
-            'Student ID': sid,
-            'Name': students_db[sid]['name'],
-            'Class': selected_test['class'],
-            'Subject': f"{selected_test['subject']} ({selected_test['name']})",
-            'Marks': marks,
-            'Max Marks': maxm,
-            '%': f"{percent}%",
-            'Grade': grade,
-            'Teacher': session['username'],
-            'Date': selected_test['date']
-        }
-
-        if os.path.exists(file_path):
-            df = pd.read_excel(file_path)
-            df['Student ID'] = df['Student ID'].astype(str)
-
-            # Remove old total row
-            df = df[~((df['Student ID'] == sid) & (df['Subject'] == "→ Total"))]
-
-            # Add new row
-            df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
-
-            student_rows = df[df['Student ID'] == sid]
-            relevant = student_rows[~student_rows['Subject'].astype(str).str.startswith("→ Total")]
-            total_marks = relevant['Marks'].sum()
-            total_max = relevant['Max Marks'].sum()
-            total_percent = round((total_marks / total_max) * 100, 2) if total_max > 0 else 0
-            total_grade = 'A+' if total_percent >= 90 else 'A' if total_percent >= 75 else 'B' if total_percent >= 60 else 'C' if total_percent >= 50 else 'D'
-
-            total_row = {
-                'Student ID': sid,
-                'Name': students_db[sid]['name'],
-                'Class': selected_test['class'],
-                'Subject': "→ Total",
-                'Marks': total_marks,
-                'Max Marks': total_max,
-                '%': f"{total_percent}%",
-                'Grade': total_grade,
-                'Teacher': '',
-                'Date': selected_test['date']
-            }
-
-            df = pd.concat([df, pd.DataFrame([total_row])], ignore_index=True)
-            df.to_excel(file_path, index=False)
-        else:
-            total_row = {
-                'Student ID': sid,
-                'Name': students_db[sid]['name'],
-                'Class': selected_test['class'],
-                'Subject': "→ Total",
-                'Marks': marks,
-                'Max Marks': maxm,
-                '%': f"{percent}%",
-                'Grade': grade,
-                'Teacher': '',
-                'Date': selected_test['date']
-            }
-            df = pd.DataFrame([new_row, total_row])
-            df.to_excel(file_path, index=False)
+        # Add result to database
+        add_result(sid, f"{selected_test['subject']} ({selected_test['name']})", 
+                  marks, maxm, session['teacher_id'], selected_test['date'], test_id)
 
         return redirect('/upload_result')
 
-    return render_template('upload_result.html', tests=test_options, students=students_db)
-
-
-
+    return render_template('upload_result.html', tests=test_options, students=students)
 
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect('/')
 
-@app.route('/download_excel')
-def download_excel():
-    if not os.path.exists(results_file):
-        return "No results found."
-
-    data = []
-    with open(results_file, 'r') as f:
-        for line in f:
-            parts = line.strip().split(',')
-            if len(parts) == 6:
-                sid, subject, marks, max_marks, teacher, date = parts
-                marks = int(marks)
-                max_marks = int(max_marks)
-                percent = marks / max_marks * 100
-                grade = "A+" if percent >= 90 else "A" if percent >= 75 else "B" if percent >= 60 else "C" if percent >= 50 else "D"
-                data.append({
-                    "Student ID": sid,
-                    "Subject": subject,
-                    "Marks Obtained": marks,
-                    "Max Marks": max_marks,
-                    "Grade": grade,
-                    "Teacher": teacher,
-                    "Date": date
-                })
-
-    df = pd.DataFrame(data)
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name='Results')
-    output.seek(0)
-    return send_file(output, as_attachment=True, download_name='student_results.xlsx', mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-
-@app.route('/download_pdf')
-def download_pdf():
-    results = []
-    if not os.path.exists(results_file):
-        return "No result data found."
-
-    with open(results_file, 'r') as f:
-        for line in f:
-            parts = line.strip().split(',')
-            if len(parts) == 6:
-                results.append(parts)
-
-    rendered = render_template("pdf_template.html", results=results)
-    pdf = BytesIO()
-    pisa_status = pisa.CreatePDF(rendered, dest=pdf)
-    if pisa_status.err:
-        return "Error generating PDF"
-    pdf.seek(0)
-    return send_file(pdf, as_attachment=True, download_name="student_results.pdf", mimetype='application/pdf')
-
-
-
-
-
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080)
+    app.run(host='0.0.0.0', port=8080, debug=True)
