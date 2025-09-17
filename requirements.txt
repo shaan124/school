@@ -1,5 +1,5 @@
-Flask==3.0.0
-pandas==2.2.0
+Flask==2.3.3
+pandas==1.5.3
 openpyxl==3.1.2
 xhtml2pdf==0.2.11
 reportlab==3.6.13
