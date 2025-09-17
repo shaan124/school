@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Teacher Registration | EduPortal Pro</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" />
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+  <header>
+    <div class="header-container">
+      <a href="/" class="logo">
+        <span class="logo-icon">🏫</span>
+        <span>EduPortal Pro</span>
+      </a>
+      <div class="nav-links">
+        <a href="/" class="nav-link">Home</a>
+        <a href="/teacher_login" class="nav-link">Login</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-container">
+    <div class="form-container glass-card">
+      <h2>Teacher Registration</h2>
+      <form action="/teacher_register" method="post">
+        <div class="form-group">
+          <input type="text" name="teacher_id" class="form-control" placeholder="Teacher ID" required />
+        </div>
+        <div class="form-group">
+          <input type="password" name="password" class="form-control" placeholder="Password" required />
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Register</button>
+      </form>
+      <div class="text-center mt-4">
+        <p>Already have an account? <a href="/teacher_login" class="btn btn-outline">Login Here</a></p>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

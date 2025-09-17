@@ -1,0 +1,70 @@
+<!-- ✅ Updated Student Registration Page -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Registration | EduPortal Pro</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <header>
+    <div class="header-container">
+      <a href="/" class="logo">
+        <span class="logo-icon">🏫</span>
+        <span>EduPortal Pro</span>
+      </a>
+      <div class="nav-links">
+        <a href="/" class="nav-link">Home</a>
+        <a href="/student_login" class="nav-link">Login</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-container">
+    <div class="form-container glass-card">
+      <h2>Student Registration</h2>
+      <form action="/student_register" method="post">
+        <div class="form-group">
+          <input type="text" name="student_id" class="form-control" placeholder="Student ID" required>
+        </div>
+        <div class="form-group">
+          <input type="password" name="password" class="form-control" placeholder="Password" required>
+        </div>
+        <div class="form-group">
+          <input type="text" name="name" class="form-control" placeholder="Full Name" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Date of Birth</label>
+          <input type="date" name="dob" class="form-control" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Class</label>
+          <select name="class_name" class="form-control" required>
+            <option value="">-- Select Class --</option> 
+            <option value="5">Class 5</option>
+            <option value="6">Class 6</option>
+            <option value="7">Class 7</option>
+            <option value="8">Class 8</option>
+            <option value="9">Class 9</option>
+            <option value="10">Class 10</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Division</label>
+          <select name="division" class="form-control" required>
+            <option value="">-- Select Division --</option>
+            <option value="A">A</option>
+            <option value="B">B</option>
+          </select>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Register</button>
+      </form>
+      <div class="text-center mt-4">
+        <p>Already have an account? <a href="/student_login" class="btn btn-outline">Login Here</a></p>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

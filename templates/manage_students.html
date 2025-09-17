@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Manage Students | EduPortal Pro</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css">
+  <style>
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: #f0f4ff;
+      margin: 0;
+    }
+
+    header {
+      background: #2f3e9e;
+      color: white;
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      font-size: 1.3rem;
+      font-weight: 600;
+      text-decoration: none;
+      color: white;
+    }
+
+    main {
+      max-width: 1100px;
+      margin: auto;
+      padding: 2rem;
+    }
+
+    h2 {
+      margin-bottom: 1rem;
+    }
+
+    .filter-bar {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 1.5rem;
+    }
+
+    select {
+      padding: 0.5rem;
+      font-size: 1rem;
+      border-radius: 5px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+
+    th, td {
+      padding: 1rem;
+      border-bottom: 1px solid #eee;
+    }
+
+    th {
+      background: #2f3e9e;
+      color: white;
+    }
+
+    tr:hover {
+      background: #f9f9f9;
+    }
+
+    @media (max-width: 768px) {
+      table, thead, tbody, th, td, tr {
+        display: block;
+      }
+
+      tr {
+        margin-bottom: 1rem;
+        background: white;
+        padding: 1rem;
+        border-radius: 6px;
+      }
+
+      th {
+        display: none;
+      }
+
+      td {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.5rem 0;
+        border: none;
+      }
+
+      td::before {
+        content: attr(data-label);
+        font-weight: bold;
+        color: #555;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <a href="/" class="logo">🏫 EduPortal Pro</a>
+  <a href="/logout" class="nav-link" style="color:white;">Logout</a>
+</header>
+
+<main>
+  <h2>Manage Students</h2>
+
+  <div class="filter-bar">
+    <label>Filter by Class:</label>
+    <select id="classFilter" onchange="applyFilter()">
+      <option value="">All</option>
+      {% for c in students|map(attribute='class')|unique %}
+      <option value="{{ c }}">{{ c }}</option>
+      {% endfor %}
+    </select>
+
+    <label>Filter by Division:</label>
+    <select id="divisionFilter" onchange="applyFilter()">
+      <option value="">All</option>
+      {% for d in students|map(attribute='division')|unique %}
+      <option value="{{ d }}">{{ d }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <table id="studentsTable">
+    <thead>
+      <tr>
+        <th>Student ID</th>
+        <th>Name</th>
+        <th>DOB</th>
+        <th>Age</th>
+        <th>Class</th>
+        <th>Division</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for student in students %}
+      <tr data-class="{{ student.class }}" data-division="{{ student.division }}">
+        <td data-label="ID">{{ student.id }}</td>
+        <td data-label="Name">{{ student.name }}</td>
+        <td data-label="DOB">{{ student.dob }}</td>
+        <td data-label="Age">{{ student.age }}</td>
+        <td data-label="Class">{{ student.class }}</td>
+        <td data-label="Division">{{ student.division }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</main>
+
+<script>
+  function applyFilter() {
+    const classValue = document.getElementById('classFilter').value;
+    const divisionValue = document.getElementById('divisionFilter').value;
+    const rows = document.querySelectorAll('#studentsTable tbody tr');
+
+    rows.forEach(row => {
+      const rowClass = row.getAttribute('data-class');
+      const rowDiv = row.getAttribute('data-division');
+
+      const matchClass = !classValue || rowClass === classValue;
+      const matchDiv = !divisionValue || rowDiv === divisionValue;
+
+      row.style.display = (matchClass && matchDiv) ? '' : 'none';
+    });
+  }
+</script>
+
+</body>
+</html>

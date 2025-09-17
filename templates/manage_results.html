@@ -1,0 +1,14 @@
+<!-- Manage Results -->
+
+<h2>All Results</h2>
+<table>
+<tr><th>Student ID</th><th>Subject</th><th>Marks</th><th>Uploaded By</th></tr>
+{% for result in results %}
+<tr>
+    <td>{{ result.student_id }}</td>
+    <td>{{ result.subject }}</td>
+    <td>{{ result.marks }}</td>
+    <td>{{ result.uploaded_by }}</td>
+</tr>
+{% endfor %}
+</table>

@@ -1,0 +1,71 @@
+90<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Upload Results | EduPortal Pro</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <header>
+    <div class="header-container">
+      <a href="/" class="logo">
+        <span class="logo-icon">🏫</span>
+        <span>EduPortal Pro</span>
+      </a>
+      <div class="nav-links">
+        {% if session.user_id %}
+        <div class="user-status">
+          <div class="user-avatar">{{ session.username[0]|upper }}</div>
+          <span>{{ session.username }}</span>
+        </div>
+        <a href="/teacher_dashboard" class="nav-link">Dashboard</a>
+        <a href="/logout" class="nav-link">Logout</a>
+        {% endif %}
+      </div>
+    </div>
+  </header>
+
+  <main class="main-container">
+    <div class="form-container glass-card">
+      <h2>Upload Student Results</h2>
+      <form action="/upload_result" method="post">
+        <div class="form-group">
+          <input type="text" name="student_id" class="form-control" placeholder="Student ID" required>
+        </div>
+        <div class="form-group">
+          <select name="subject" class="form-control" required>
+            <option value="" disabled selected>Select Subject</option>
+            <option value="Math">Mathematics</option>
+            <option value="Science">Science</option>
+            <option value="English">English</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <input type="number" name="marks" class="form-control" placeholder="Marks Obtained" required>
+        </div>
+        <div class="form-group">
+          <input type="number" name="max_marks" class="form-control" placeholder="Maximum Marks" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Test Date</label>
+          <input type="date" name="test_date" class="form-control" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Upload Results</button>
+      </form>
+      {% if success %}
+      <div class="alert alert-success mt-4">
+        {{ success }}
+      </div>
+      {% endif %}
+    </div>
+<div class="download-buttons" style="margin-top: 20px;">
+  <a href="/download_excel" class="btn btn-secondary">📥 Download Excel</a>
+  <a href="/download_pdf" class="btn btn-secondary" target="_blank">🖨️ Download PDF</a>
+</div>
+
+
+  </main>
+</body>
+</html>

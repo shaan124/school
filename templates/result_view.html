@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{{ student_name }}'s Results | EduPortal Pro</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Poppins', sans-serif;
+      background: #f8f9fa;
+      color: #333;
+    }
+
+    header {
+      background: #2f3e9e;
+      padding: 1rem 2rem;
+      color: white;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .logo {
+      font-size: 1.4rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      text-decoration: none;
+      color: white;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .nav-link {
+      text-decoration: none;
+      color: white;
+      font-weight: 500;
+    }
+
+    .user-status {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .user-avatar {
+      background: white;
+      color: #2f3e9e;
+      font-weight: bold;
+      padding: 0.4rem 0.7rem;
+      border-radius: 50%;
+    }
+
+    .main-container {
+      padding: 2rem 1rem;
+      max-width: 1200px;
+      margin: auto;
+    }
+
+    .result-container {
+      display: flex;
+      gap: 2rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .glass-card {
+      background: rgba(255,255,255,0.9);
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+      width: 100%;
+      max-width: 500px;
+    }
+
+    .student-avatar {
+      font-size: 2.4rem;
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 0.8rem;
+    }
+
+    .detail-label {
+      font-weight: 600;
+      color: #777;
+    }
+
+    .btn {
+      display: inline-block;
+      margin-top: 1rem;
+      padding: 0.6rem 1.2rem;
+      border: none;
+      background: #2f3e9e;
+      color: white;
+      border-radius: 6px;
+      text-decoration: none;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    .btn-outline {
+      background: none;
+      border: 2px solid #2f3e9e;
+      color: #2f3e9e;
+    }
+
+    .results-card h2 {
+      margin-bottom: 1.2rem;
+    }
+
+    .result-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .result-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem;
+      background: #fff;
+      border-left: 4px solid #2f3e9e;
+      margin-bottom: 1rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      cursor: pointer;
+    }
+
+    .result-item:hover {
+      background: #f0f4ff;
+      transform: scale(1.01);
+    }
+
+    .result-score {
+      font-weight: bold;
+      color: #2f3e9e;
+    }
+
+    .chart-container {
+      height: 320px;
+      margin-top: 2rem;
+    }
+
+    #performanceChart {
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    .test-details {
+      margin-top: 2rem;
+      background: #fff;
+      padding: 1rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      display: none;
+    }
+
+    .text-center {
+      text-align: center;
+    }
+
+    @media(max-width: 768px) {
+      header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.8rem;
+      }
+
+      .main-container {
+        padding: 1rem;
+      }
+
+      .result-container {
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .glass-card {
+        width: 100%;
+      }
+
+      .detail-row {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <a href="/" class="logo">
+    <span class="logo-icon">🏫</span>
+    EduPortal Pro
+  </a>
+  <div class="nav-links">
+    {% if session.get('role') == 'student' %}
+    <div class="user-status">
+      <div class="user-avatar">{{ session.username[0]|upper }}</div>
+      <span>{{ session.username }}</span>
+    </div>
+    <a href="/app" class="nav-link">Dashboard</a>
+    <a href="/logout" class="nav-link">Logout</a>
+    {% endif %}
+  </div>
+</header>
+
+<main class="main-container">
+  <h1 class="text-center">{{ student_name }}'s Academic Results</h1>
+  
+  <div class="result-container">
+    <!-- Student Info -->
+    <div class="student-card glass-card">
+      <div class="student-avatar">🎓</div>
+      <h3>Student Profile</h3>
+      <div class="detail-row"><span class="detail-label">Name:</span><span>{{ student_name }}</span></div>
+      <div class="detail-row"><span class="detail-label">Date of Birth:</span><span>{{ student_dob }}</span></div>
+      <div class="detail-row"><span class="detail-label">Age:</span><span>{{ student_age }}</span></div>
+      <div class="text-center">
+        <a href="/app" class="btn btn-outline">Back to Dashboard</a>
+      </div>
+    </div>
+
+    <!-- Results & Chart -->
+    <div class="results-card glass-card">
+      <h2>Academic Performance</h2>
+     <ul class="result-list">
+  {% for result in results %}
+  <li class="result-item"
+      style="border-left: 5px solid {{ result.color }};"
+      onclick="showGraph('{{ result.subject }}', {{ result.marks }}, {{ result.max_marks }}, '{{ result.teacher_name }}', '{{ result.date }}')">
+    <div class="result-details">
+      <strong>{{ result.subject }}</strong>
+      <p>Teacher: {{ result.teacher_name }}</p>
+    </div>
+    <div class="result-score">
+      {{ result.marks }}/{{ result.max_marks }} ({{ result.grade }})
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+      <div class="chart-container">
+        <canvas id="performanceChart"></canvas>
+      </div>
+
+      <div id="testDetails" class="test-details">
+        <h3>Test Details</h3>
+        <div class="detail-row"><strong>Subject:</strong> <span id="subjectName"></span></div>
+        <div class="detail-row"><strong>Teacher:</strong> <span id="teacherName"></span></div>
+        <div class="detail-row"><strong>Date:</strong> <span id="testDate"></span></div>
+        <div class="detail-row"><strong>Score:</strong> <span id="subjectScore"></span></div>
+      </div>
+
+      <div class="text-center mt-4">
+        <button onclick="showOverallPerformance()" class="btn">Show Overall Performance</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+  const trendData = {{ trend_data | safe }};
+  let chartInstance = null;
+
+  function showOverallPerformance() {
+    const ctx = document.getElementById('performanceChart').getContext('2d');
+    if (chartInstance) chartInstance.destroy();
+
+    chartInstance = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: trendData.map(t => t.date),
+        datasets: [{
+          label: 'Overall Percentage',
+          data: trendData.map(t => t.percent),
+          fill: false,
+          borderColor: '#2f3e9e',
+          tension: 0.3,
+          pointBackgroundColor: 'white',
+          pointBorderColor: '#2f3e9e'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            beginAtZero: true,
+            max: 100,
+            title: { display: true, text: "Percentage (%)" }
+          },
+          x: {
+            title: { display: true, text: "Date" }
+          }
+        },
+        plugins: {
+          legend: { display: true },
+          tooltip: { enabled: true }
+        }
+      }
+    });
+
+    document.getElementById("testDetails").style.display = "none";
+  }
+
+  document.addEventListener("DOMContentLoaded", showOverallPerformance);
+</script>
+
+
+</body>
+</html>

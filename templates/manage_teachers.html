@@ -1,0 +1,13 @@
+<!-- Manage Teachers -->
+{% extends 'index.html' %}
+{% block content %}
+<h2>Manage Teachers</h2>
+<div class="cards">
+{% for tid, teacher in teachers.items() %}
+<div class="card">
+    <h3>{{ teacher.name }}</h3>
+    <p>ID: {{ tid }}</p>
+</div>
+{% endfor %}
+</div>
+{% endblock %}
